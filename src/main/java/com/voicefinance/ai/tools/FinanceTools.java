@@ -1,4 +1,4 @@
-package com.voicefinance.tools;
+package com.voicefinance.ai.tools;
 
 import com.voicefinance.domain.results.FillExpenseResult;
 import com.voicefinance.service.ExpenseService;

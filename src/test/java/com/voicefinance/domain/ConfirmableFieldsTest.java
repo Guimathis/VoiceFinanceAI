@@ -1,6 +1,7 @@
 package com.voicefinance.domain;
 
 import com.voicefinance.domain.annotation.Confirmable;
+import com.voicefinance.domain.annotation.ConfirmableFields;
 import com.voicefinance.domain.annotation.FieldSpec;
 import com.voicefinance.domain.entity.Expense;
 import com.voicefinance.domain.enums.Category;

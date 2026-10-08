@@ -1,16 +1,12 @@
-package com.voicefinance.domain;
+package com.voicefinance.domain.annotation;
 
-import com.voicefinance.domain.annotation.Confirmable;
-import com.voicefinance.domain.annotation.FieldSpec;
 import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Component
 public class ConfirmableFields {

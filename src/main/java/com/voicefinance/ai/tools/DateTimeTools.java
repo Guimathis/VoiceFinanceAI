@@ -1,4 +1,4 @@
-package com.voicefinance.tools;
+package com.voicefinance.ai.tools;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;

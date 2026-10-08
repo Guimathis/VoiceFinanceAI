@@ -1,5 +1,6 @@
 package com.voicefinance.tools;
 
+import com.voicefinance.ai.tools.FinanceTools;
 import com.voicefinance.domain.commands.FillExpenseCommand;
 import com.voicefinance.domain.enums.Category;
 import com.voicefinance.domain.enums.ExpenseStatus;

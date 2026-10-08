@@ -1,8 +1,8 @@
 package com.voicefinance.ai.config;
 
 import com.voicefinance.ai.advisors.SimpleLoggerAdvisor;
-import com.voicefinance.tools.DateTimeTools;
-import com.voicefinance.tools.FinanceTools;
+import com.voicefinance.ai.tools.DateTimeTools;
+import com.voicefinance.ai.tools.FinanceTools;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;

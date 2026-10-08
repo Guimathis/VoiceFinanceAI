@@ -1,7 +1,6 @@
 package com.voicefinance.service;
 
-import com.voicefinance.domain.ConfirmableFields;
-import com.voicefinance.domain.commands.CreateConfirmationCommand;
+import com.voicefinance.domain.annotation.ConfirmableFields;
 import com.voicefinance.domain.entity.Expense;
 import com.voicefinance.domain.results.FillExpenseResult;
 import com.voicefinance.repository.ExpenseRepository;
