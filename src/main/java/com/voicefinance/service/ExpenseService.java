@@ -20,7 +20,14 @@ import java.util.UUID;
 import com.voicefinance.domain.entity.ExpenseFieldConfirmation;
 import com.voicefinance.domain.enums.ConfirmationField;
 import com.voicefinance.domain.enums.ConfirmationStatus;
+import com.voicefinance.domain.dto.CreateExpenseRequest;
+import com.voicefinance.domain.dto.UpdateExpenseRequest;
+import com.voicefinance.domain.dto.ExpenseResponse;
+import com.voicefinance.domain.dto.ExpenseSummaryResponse;
+import com.voicefinance.exception.ExpenseNotFoundException;
+import com.voicefinance.exception.ExpenseNotEditableException;
 import jakarta.persistence.criteria.Predicate;
+import java.time.Instant;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -136,12 +143,185 @@ public class ExpenseService {
         return new FillExpenseResult.Canceled();
     }
 
+    @Transactional
+    public ExpenseResponse createManualExpense(CreateExpenseRequest request) {
+        UUID currentUserId = currentUserProvider.getCurrentUserId();
+        String currency = (request.currency() != null && !request.currency().isBlank())
+                ? request.currency() : "BRL";
+        Money money = new Money(request.amount(), currency);
+        LocalDate occurredOn = request.occurredOn() != null ? request.occurredOn() : LocalDate.now();
+
+        Expense expense = Expense.builder()
+                .userId(currentUserId)
+                .amount(money)
+                .category(request.category())
+                .description(request.description())
+                .occurredOn(occurredOn)
+                .status(ExpenseStatus.CONFIRMED)
+                .origin(ExpenseOrigin.MANUAL)
+                .captureId(UUID.randomUUID())
+                .confirmedAt(Instant.now())
+                .build();
+
+        Expense saved = expenseRepository.save(expense);
+        log.info("Despesa manual criada com id={}", saved.getId());
+        return ExpenseResponse.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public ExpenseResponse getExpenseById(UUID id) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Expense expense = expenseRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ExpenseNotFoundException(id));
+        return ExpenseResponse.from(expense);
+    }
+
+    @Transactional
+    public ExpenseResponse updateExpense(UUID id, UpdateExpenseRequest request) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Expense expense = expenseRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ExpenseNotFoundException(id));
+
+        if (!expense.isEditable()) {
+            throw new ExpenseNotEditableException(expense.getStatus());
+        }
+
+        expense.update(request);
+        Expense saved = expenseRepository.save(expense);
+        log.info("Despesa atualizada com id={}", saved.getId());
+        return ExpenseResponse.from(saved);
+    }
+
+    @Transactional
+    public ExpenseResponse confirmExpenseDirect(UUID id) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Expense expense = expenseRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ExpenseNotFoundException(id));
+
+        if (!expense.isEditable()) {
+            throw new ExpenseNotEditableException(expense.getStatus());
+        }
+
+        expense.confirmExpense();
+        Expense saved = expenseRepository.save(expense);
+        log.info("Despesa confirmada diretamente com id={}", saved.getId());
+        return ExpenseResponse.from(saved);
+    }
+
+    @Transactional
+    public ExpenseResponse cancelExpenseDirect(UUID id) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Expense expense = expenseRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ExpenseNotFoundException(id));
+
+        if (!expense.isEditable()) {
+            throw new ExpenseNotEditableException(expense.getStatus());
+        }
+
+        expense.cancelExpense();
+        Expense saved = expenseRepository.save(expense);
+        log.info("Despesa cancelada diretamente com id={}", saved.getId());
+        return ExpenseResponse.from(saved);
+    }
+
+    @Transactional
+    public void deleteExpense(UUID id) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        Expense expense = expenseRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ExpenseNotFoundException(id));
+
+        expenseRepository.delete(expense);
+        log.info("Despesa excluída com id={}", id);
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ExpenseResponse> findExpensesPaginated(ListExpensesCommand command, Pageable pageable) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        ListExpensesCommand cmd = command != null ? command : new ListExpensesCommand(null, null, null, null, null, null);
+
+        Specification<Expense> spec = buildSpecification(userId, cmd);
+        return expenseRepository.findAll(spec, pageable).map(ExpenseResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public ExpenseSummaryResponse getExpenseSummary(LocalDate startDate, LocalDate endDate) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        LocalDate start = startDate != null ? startDate : LocalDate.now().withDayOfMonth(1);
+        LocalDate end = endDate != null ? endDate : LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+
+        List<Expense> expenses = expenseRepository.findByUserIdAndOccurredOnBetween(userId, start, end);
+
+        java.math.BigDecimal totalSpent = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal totalPending = java.math.BigDecimal.ZERO;
+        long confirmedCount = 0;
+        long pendingCount = 0;
+        long canceledCount = 0;
+
+        java.util.Map<com.voicefinance.domain.enums.Category, java.math.BigDecimal> categorySums = new java.util.EnumMap<>(com.voicefinance.domain.enums.Category.class);
+        java.util.Map<com.voicefinance.domain.enums.Category, Long> categoryCounts = new java.util.EnumMap<>(com.voicefinance.domain.enums.Category.class);
+
+        for (Expense exp : expenses) {
+            java.math.BigDecimal amt = (exp.getAmount() != null && exp.getAmount().amount() != null)
+                    ? exp.getAmount().amount()
+                    : java.math.BigDecimal.ZERO;
+
+            if (exp.getStatus() == ExpenseStatus.CONFIRMED) {
+                confirmedCount++;
+                totalSpent = totalSpent.add(amt);
+                if (exp.getCategory() != null) {
+                    categorySums.merge(exp.getCategory(), amt, java.math.BigDecimal::add);
+                    categoryCounts.merge(exp.getCategory(), 1L, Long::sum);
+                }
+            } else if (exp.getStatus() == ExpenseStatus.PENDING_CONFIRMATION) {
+                pendingCount++;
+                totalPending = totalPending.add(amt);
+            } else if (exp.getStatus() == ExpenseStatus.CANCELED) {
+                canceledCount++;
+            }
+        }
+
+        long totalExpensesCount = expenses.size();
+        final java.math.BigDecimal finalTotalSpent = totalSpent;
+
+        List<ExpenseSummaryResponse.CategorySummary> breakdown = categorySums.entrySet().stream()
+                .map(entry -> {
+                    com.voicefinance.domain.enums.Category cat = entry.getKey();
+                    java.math.BigDecimal total = entry.getValue();
+                    long count = categoryCounts.getOrDefault(cat, 0L);
+                    double pct = finalTotalSpent.compareTo(java.math.BigDecimal.ZERO) > 0
+                            ? total.divide(finalTotalSpent, 4, java.math.RoundingMode.HALF_UP).doubleValue() * 100.0
+                            : 0.0;
+                    return new ExpenseSummaryResponse.CategorySummary(cat, total, count, Math.round(pct * 100.0) / 100.0);
+                })
+                .sorted((a, b) -> b.total().compareTo(a.total()))
+                .toList();
+
+        return new ExpenseSummaryResponse(
+                totalSpent,
+                totalPending,
+                totalExpensesCount,
+                confirmedCount,
+                pendingCount,
+                canceledCount,
+                breakdown
+        );
+    }
+
     @Transactional(readOnly = true)
     public List<Expense> listExpenses(ListExpensesCommand command) {
         UUID userId = currentUserProvider.getCurrentUserId();
         ListExpensesCommand cmd = command != null ? command : new ListExpensesCommand(null, null, null, null, null, null);
 
-        Specification<Expense> spec = (root, query, cb) -> {
+        Specification<Expense> spec = buildSpecification(userId, cmd);
+
+        int pageSize = (cmd.limit() != null && cmd.limit() > 0) ? Math.min(cmd.limit(), 50) : 10;
+        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(Sort.Direction.DESC, "occurredOn", "createdAt"));
+
+        return expenseRepository.findAll(spec, pageable).getContent();
+    }
+
+    private Specification<Expense> buildSpecification(UUID userId, ListExpensesCommand cmd) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("userId"), userId));
 
@@ -163,11 +343,6 @@ public class ExpenseService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-
-        int pageSize = (cmd.limit() != null && cmd.limit() > 0) ? Math.min(cmd.limit(), 50) : 10;
-        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(Sort.Direction.DESC, "occurredOn", "createdAt"));
-
-        return expenseRepository.findAll(spec, pageable).getContent();
     }
 }
 

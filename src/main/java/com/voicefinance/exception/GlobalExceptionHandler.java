@@ -43,6 +43,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(status).headers(headers).body(problem);
     }
 
+    @ExceptionHandler(ExpenseNotFoundException.class)
+    public ProblemDetail handleExpenseNotFoundException(ExpenseNotFoundException ex) {
+        log.warn("Despesa não encontrada: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Expense Not Found");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler(ExpenseNotEditableException.class)
+    public ProblemDetail handleExpenseNotEditableException(ExpenseNotEditableException ex) {
+        log.warn("Despesa não editável: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Expense Not Editable");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
     @ExceptionHandler(ServerException.class)
     public ProblemDetail handleServerException(ServerException ex) {
         log.error("Erro no serviço genai inesperado", ex);

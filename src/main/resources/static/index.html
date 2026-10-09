@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceFinance - Gestão Inteligente de Despesas</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo-area">
+            <div class="logo-badge">VF</div>
+            <div>
+                <h1 class="brand-title">VoiceFinance</h1>
+                <p class="brand-subtitle">Registro e Gestão Financeira Inteligente</p>
+            </div>
+        </div>
+        <div class="header-links">
+            <a href="/swagger-ui.html" target="_blank" rel="noopener">Documentação Swagger / OpenAPI</a>
+        </div>
+    </header>
+
+    <nav class="tabs-nav">
+        <button class="tab-btn active" data-tab="tab-dashboard">📊 Painel Financeiro</button>
+        <button class="tab-btn" data-tab="tab-chat">💬 Chat com IA</button>
+        <button class="tab-btn" data-tab="tab-expenses">📋 Gestão de Despesas</button>
+    </nav>
+
+    <main class="container">
+        <!-- ABA 1: PAINEL FINANCEIRO -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="table-toolbar" style="margin-bottom: 1.5rem;">
+                <div class="filter-group">
+                    <label style="font-size: 0.85rem; color: var(--text-secondary);">Período:</label>
+                    <input type="date" id="dash-start-date">
+                    <span style="color: var(--text-secondary);">até</span>
+                    <input type="date" id="dash-end-date">
+                    <button class="btn-primary" id="btn-refresh-summary" style="padding: 0.5rem 1rem;">Filtrar</button>
+                </div>
+            </div>
+
+            <div class="summary-cards-grid">
+                <div class="metric-card confirmed">
+                    <span class="metric-title">Total Gasto (Confirmado)</span>
+                    <span class="metric-value" id="summary-total-spent">R$ 0,00</span>
+                    <span class="metric-info" id="summary-confirmed-count">0 despesas confirmadas</span>
+                </div>
+                <div class="metric-card pending">
+                    <span class="metric-title">Gastos Pendentes</span>
+                    <span class="metric-value" id="summary-total-pending">R$ 0,00</span>
+                    <span class="metric-info" id="summary-pending-count">0 aguardando confirmação</span>
+                </div>
+                <div class="metric-card total">
+                    <span class="metric-title">Total de Registros</span>
+                    <span class="metric-value" id="summary-total-count">0</span>
+                    <span class="metric-info">Total no período</span>
+                </div>
+                <div class="metric-card canceled">
+                    <span class="metric-title">Cancelados / Descartados</span>
+                    <span class="metric-value" id="summary-canceled-count">0</span>
+                    <span class="metric-info">Lançamentos descartados</span>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Distribuição por Categoria</h2>
+                    </div>
+                    <div id="category-distribution-container">
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">Carregando dados de categorias...</p>
+                    </div>
+                </div>
+
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Dicas Rápidas</h2>
+                    </div>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.75rem;">
+                        <p>💡 Use o <strong>Chat com IA</strong> para digitar despesas em linguagem natural, por exemplo: <em>"Almocei hoje no restaurante, deu 45 reais"</em>.</p>
+                        <p>✅ Despesas criadas manualmente pela aba <strong>Gestão de Despesas</strong> nascem automaticamente com status <strong>CONFIRMADO</strong>.</p>
+                        <p>🔍 Despesas identificadas pela IA com dados pendentes podem ser confirmadas com um clique aqui ou pelo próprio chat.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 2: CHAT COM IA -->
+        <section id="tab-chat" class="tab-content">
+            <div class="chat-layout">
+                <div class="chat-header">
+                    <div>
+                        <strong style="font-size: 1rem;">Assistente VoiceFinance</strong>
+                        <div style="font-size: 0.8rem; color: var(--accent-emerald);">● Online via Google Gemini</div>
+                    </div>
+                    <button class="btn-secondary" id="btn-clear-chat" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Limpar Tela</button>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-bubble assistant">
+                        Olá! Sou o assistente do VoiceFinance. Você pode me falar ou digitar sobre suas despesas do dia a dia. Por exemplo:
+                        <div class="quick-actions" style="margin-top: 0.5rem;">
+                            <button class="quick-action-btn" data-text="Gastei 35 reais na padaria hoje">"Gastei 35 reais na padaria hoje"</button>
+                            <button class="quick-action-btn" data-text="Quais foram meus gastos este mês?">"Quais foram meus gastos este mês?"</button>
+                        </div>
+                    </div>
+                </div>
+                <form class="chat-input-area" id="chat-form">
+                    <input type="text" id="chat-input" placeholder="Digite sua despesa ou pergunta..." autocomplete="off">
+                    <button type="submit" class="btn-primary" id="btn-send-chat">Enviar</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ABA 3: GESTÃO DE DESPESAS -->
+        <section id="tab-expenses" class="tab-content">
+            <div class="table-toolbar">
+                <div class="filter-group">
+                    <select id="filter-category">
+                        <option value="">Todas as Categorias</option>
+                        <option value="ALIMENTACAO">Alimentação</option>
+                        <option value="MERCADO">Mercado</option>
+                        <option value="TRANSPORTE">Transporte</option>
+                        <option value="MORADIA">Moradia</option>
+                        <option value="SAUDE">Saúde</option>
+                        <option value="LAZER">Lazer</option>
+                        <option value="EDUCACAO">Educação</option>
+                        <option value="OUTROS">Outros</option>
+                    </select>
+                    <select id="filter-status">
+                        <option value="">Todos os Status</option>
+                        <option value="CONFIRMED">Confirmado</option>
+                        <option value="PENDING_CONFIRMATION">Pendente</option>
+                        <option value="CANCELED">Cancelado</option>
+                    </select>
+                    <input type="text" id="filter-search" placeholder="Buscar por descrição...">
+                    <button class="btn-secondary" id="btn-apply-filters">Filtrar</button>
+                </div>
+                <div>
+                    <button class="btn-primary" id="btn-open-create-modal">+ Nova Despesa Manual</button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Categoria</th>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Origem</th>
+                            <th style="text-align: right;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenses-table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                                Carregando despesas...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL DE CRIAÇÃO MANUAL -->
+    <div class="modal-backdrop" id="modal-create-expense">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="panel-title">Nova Despesa Manual</h3>
+                <button class="modal-close" id="modal-create-close">&times;</button>
+            </div>
+            <form id="form-create-expense">
+                <div class="form-group">
+                    <label for="create-amount">Valor (R$) *</label>
+                    <input type="number" id="create-amount" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="create-category">Categoria *</label>
+                    <select id="create-category" required>
+                        <option value="ALIMENTACAO">Alimentação</option>
+                        <option value="MERCADO">Mercado</option>
+                        <option value="TRANSPORTE">Transporte</option>
+                        <option value="MORADIA">Moradia</option>
+                        <option value="SAUDE">Saúde</option>
+                        <option value="LAZER">Lazer</option>
+                        <option value="EDUCACAO">Educação</option>
+                        <option value="OUTROS" selected>Outros</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="create-description">Descrição</label>
+                    <input type="text" id="create-description" placeholder="Ex.: Almoço de domingo" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="create-date">Data do Gasto</label>
+                    <input type="date" id="create-date">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="modal-create-cancel">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Despesa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

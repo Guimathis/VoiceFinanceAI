@@ -106,6 +106,24 @@ public class Expense implements Serializable {
         }
     }
 
+    public void update(com.voicefinance.domain.dto.UpdateExpenseRequest req) {
+        if (req.amount() != null) {
+            String cur = req.currency() != null && !req.currency().isBlank()
+                    ? req.currency()
+                    : this.amount != null ? this.amount.currency() : "BRL";
+            this.amount = new Money(req.amount(), cur);
+        }
+        if (req.category() != null) {
+            this.category = req.category();
+        }
+        if (req.description() != null) {
+            this.description = req.description();
+        }
+        if (req.occurredOn() != null) {
+            this.occurredOn = req.occurredOn();
+        }
+    }
+
     public void addConfirmation(ExpenseFieldConfirmation confirmation) {
         if (this.expenseConfirmations == null) {
             this.expenseConfirmations = new ArrayList<>();

@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 
-@RestController(value = "/voice")
+@RestController
+@RequestMapping("/api/v1/voice")
 public class AudioController {
 
     private final ExpenseClient expenseClient;

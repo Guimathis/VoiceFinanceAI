@@ -216,8 +216,8 @@ A aplicação estará disponível em `http://localhost:8000`.
 
 ## 📡 Endpoints da API (Fase 1)
 
-### Interação com o Agente
-- **`POST /action/`** (ou caminho raiz configurado)
+### 1. Interação Conversacional com a IA
+- **`POST /api/v1/chat`**
   - **Body**:
     ```json
     {
@@ -227,12 +227,29 @@ A aplicação estará disponível em `http://localhost:8000`.
   - **Response**:
     ```json
     {
-      "response": "Anotei R$ 32,00 em Alimentação para a data de hoje. Posso confirmar o registro?"
+      "message": "Anotei R$ 32,00 em Alimentação para a data de hoje. Posso confirmar o registro?"
     }
     ```
 
-### Documentação Swagger / OpenAPI
-Com a aplicação em execução, acesse a documentação interativa em:
+### 2. Gestão Direta de Despesas (CRUD e Ações)
+- **`POST /api/v1/expenses`**: Criação manual direta de despesa (status inicial: `CONFIRMED`, origem: `MANUAL`).
+- **`GET /api/v1/expenses`**: Listagem paginada com filtros (`startDate`, `endDate`, `category`, `status`, `description`, `page`, `size`, `sort`).
+- **`GET /api/v1/expenses/{id}`**: Detalhe completo de uma despesa e suas confirmações.
+- **`PUT /api/v1/expenses/{id}`**: Atualização de campos de despesa em aberto.
+- **`POST /api/v1/expenses/{id}/confirm`**: Confirmação direta de despesa pendente.
+- **`POST /api/v1/expenses/{id}/cancel`**: Cancelamento direto de despesa.
+- **`DELETE /api/v1/expenses/{id}`**: Exclusão de despesa.
+- **`GET /api/v1/expenses/summary`**: Resumo financeiro com total gasto confirmado, total pendente, contagens por status e divisão por categorias com percentuais.
+
+### 3. Interface Web Integrada
+Com a aplicação em execução, acesse no navegador:
+`http://localhost:8000/`
+- **Painel Financeiro**: Resumo em tempo real de gastos confirmados, pendentes e distribuição por categoria;
+- **Chat com IA**: Interação textual fluida com o agente inteligente;
+- **Gestão de Despesas**: Tabela com filtros rápidos, modal de inclusão manual e botões de ação direta.
+
+### 4. Documentação Swagger / OpenAPI
+Acesse a documentação interativa em:
 `http://localhost:8000/swagger-ui.html`
 
 ---
@@ -240,10 +257,7 @@ Com a aplicação em execução, acesse a documentação interativa em:
 ## 🔮 Próximos Passos (Roadmap)
 
 - **Fase 2 - Entrada por Áudio**:
-  - Endpoint multipart para upload de arquivos de áudio;
+  - Endpoint multipart para upload de arquivos de áudio em `/api/v1/voice/expense`;
   - Pipeline de validação de mídia (tamanho, formato e integridade);
-  - Transcrição literal via modelo dedicado do Gemini, integrando o texto transcrito diretamente ao fluxo conversacional da Fase 1.
-- **Frontend / Interface do Usuário**:
-  - Interface interativa de chat (web e mobile);
-  - Exibição de cards de gastos pendentes com botões de confirmação rápida;
-  - Notificações de esclarecimentos pendentes.
+  - Transcrição literal via modelo dedicado do Gemini, integrando o texto transcrito diretamente ao fluxo conversacional da Fase 1;
+  - Gravação de áudio via microfone no navegador direto pela interface web.
