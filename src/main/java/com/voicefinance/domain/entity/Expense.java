@@ -58,7 +58,7 @@ public class Expense implements Serializable {
     @Column(name = "origin", nullable = false)
     private ExpenseOrigin origin;
 
-    @Column(name = "capture_id", nullable = false)
+    @Column(name = "capture_id")
     private UUID captureId;
 
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL)

@@ -61,6 +61,83 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(EmptyAudioException.class)
+    public ProblemDetail handleEmptyAudioException(EmptyAudioException ex) {
+        log.warn("Arquivo de áudio vazio: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Empty Audio");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_EMPTY");
+        return problem;
+    }
+
+    @ExceptionHandler(AudioTooLargeException.class)
+    public ProblemDetail handleAudioTooLargeException(AudioTooLargeException ex) {
+        log.warn("Arquivo de áudio excedeu o tamanho máximo: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE, ex.getMessage());
+        problem.setTitle("Payload Too Large");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_TOO_LARGE");
+        return problem;
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        log.warn("Tamanho máximo de upload excedido pelo Spring: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "O arquivo enviado excede o limite máximo permitido de 10 MB."
+        );
+        problem.setTitle("Payload Too Large");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_TOO_LARGE");
+        return ResponseEntity.status(status).headers(headers).body(problem);
+    }
+
+    @ExceptionHandler(InvalidAudioFormatException.class)
+    public ProblemDetail handleInvalidAudioFormatException(InvalidAudioFormatException ex) {
+        log.warn("Formato de áudio inválido: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ex.getMessage());
+        problem.setTitle("Unsupported Media Type");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_FORMAT_UNSUPPORTED");
+        return problem;
+    }
+
+    @ExceptionHandler(AudioDurationExceededException.class)
+    public ProblemDetail handleAudioDurationExceededException(AudioDurationExceededException ex) {
+        log.warn("Duração do áudio excedida: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Audio Duration Exceeded");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_DURATION_EXCEEDED");
+        return problem;
+    }
+
+    @ExceptionHandler(InaudibleAudioException.class)
+    public ProblemDetail handleInaudibleAudioException(InaudibleAudioException ex) {
+        log.warn("Áudio inaudível ou sem fala: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Transcription Inaudible");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_INAUDIBLE");
+        return problem;
+    }
+
+    @ExceptionHandler(AudioStorageException.class)
+    public ProblemDetail handleAudioStorageException(AudioStorageException ex) {
+        log.error("Erro no armazenamento de áudio: {}", ex.getMessage(), ex);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        problem.setTitle("Audio Storage Error");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "AUDIO_STORAGE_ERROR");
+        return problem;
+    }
+
     @ExceptionHandler(ServerException.class)
     public ProblemDetail handleServerException(ServerException ex) {
         log.error("Erro no serviço genai inesperado", ex);

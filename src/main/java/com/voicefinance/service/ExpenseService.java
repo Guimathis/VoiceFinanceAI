@@ -52,15 +52,20 @@ public class ExpenseService {
                 ? new Money(command.amount(), command.currency() != null ? command.currency() : "BRL")
                 : null;
 
+        UUID captureId = com.voicefinance.context.CaptureContextHolder.getCaptureId() != null
+                ? com.voicefinance.context.CaptureContextHolder.getCaptureId()
+                : UUID.randomUUID();
+        ExpenseOrigin origin = com.voicefinance.context.CaptureContextHolder.getOrigin();
+
         Expense expense = Expense.builder()
                 .userId(currentUserId)
                 .status(ExpenseStatus.PENDING_CONFIRMATION)
-                .origin(ExpenseOrigin.AUDIO)
+                .origin(origin)
                 .amount(amount)
                 .description(command.description())
                 .category(command.category())
                 .occurredOn(command.OccurredOn())
-                .captureId(UUID.randomUUID())
+                .captureId(captureId)
                 .build();
 
         Expense savedExpense = expenseRepository.save(expense);
@@ -159,7 +164,7 @@ public class ExpenseService {
                 .occurredOn(occurredOn)
                 .status(ExpenseStatus.CONFIRMED)
                 .origin(ExpenseOrigin.MANUAL)
-                .captureId(UUID.randomUUID())
+                .captureId(null)
                 .confirmedAt(Instant.now())
                 .build();
 
