@@ -5,6 +5,7 @@ import com.voicefinance.domain.commands.CancelExpenseCommand;
 import com.voicefinance.domain.commands.ConfirmExpenseCommand;
 import com.voicefinance.domain.commands.CreateConfirmationCommand;
 import com.voicefinance.domain.commands.FillExpenseCommand;
+import com.voicefinance.domain.commands.ListExpensesCommand;
 import com.voicefinance.domain.commands.StartExpenseCommand;
 import com.voicefinance.domain.entity.Expense;
 import com.voicefinance.domain.entity.ExpenseFieldConfirmation;
@@ -20,6 +21,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -578,5 +582,55 @@ class ExpenseServiceTest {
         assertThat(result).isInstanceOf(FillExpenseResult.Canceled.class);
         assertThat(confirmation.getStatus()).isEqualTo(com.voicefinance.domain.enums.ConfirmationStatus.REJECTED);
         verify(expenseRepository).save(expense);
+    }
+
+    @Test
+    void listExpenses_ShouldFilterByCurrentUserAndLimit() {
+        UUID userId = UUID.randomUUID();
+        when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+
+        ListExpensesCommand command = new ListExpensesCommand(
+                LocalDate.now().minusDays(5),
+                LocalDate.now(),
+                Category.ALIMENTACAO,
+                ExpenseStatus.CONFIRMED,
+                "Restaurante",
+                15
+        );
+
+        Expense exp = Expense.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .category(Category.ALIMENTACAO)
+                .build();
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        when(expenseRepository.findAll(any(Specification.class), pageableCaptor.capture()))
+                .thenReturn(new PageImpl<>(List.of(exp)));
+
+        List<Expense> result = expenseService.listExpenses(command);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(exp.getId());
+
+        Pageable capturedPageable = pageableCaptor.getValue();
+        assertThat(capturedPageable.getPageSize()).isEqualTo(15);
+    }
+
+    @Test
+    void listExpenses_WhenCommandIsNull_UsesDefaultPageSize() {
+        UUID userId = UUID.randomUUID();
+        when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        when(expenseRepository.findAll(any(Specification.class), pageableCaptor.capture()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        List<Expense> result = expenseService.listExpenses(null);
+
+        assertThat(result).isEmpty();
+
+        Pageable capturedPageable = pageableCaptor.getValue();
+        assertThat(capturedPageable.getPageSize()).isEqualTo(10);
     }
 }

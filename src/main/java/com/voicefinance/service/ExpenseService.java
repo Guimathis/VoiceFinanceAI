@@ -20,7 +20,14 @@ import java.util.UUID;
 import com.voicefinance.domain.entity.ExpenseFieldConfirmation;
 import com.voicefinance.domain.enums.ConfirmationField;
 import com.voicefinance.domain.enums.ConfirmationStatus;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -127,6 +134,40 @@ public class ExpenseService {
         log.info("Gasto cancelado com id={}", expense.getId());
 
         return new FillExpenseResult.Canceled();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Expense> listExpenses(ListExpensesCommand command) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        ListExpensesCommand cmd = command != null ? command : new ListExpensesCommand(null, null, null, null, null, null);
+
+        Specification<Expense> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("userId"), userId));
+
+            if (cmd.startDate() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("occurredOn"), cmd.startDate()));
+            }
+            if (cmd.endDate() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("occurredOn"), cmd.endDate()));
+            }
+            if (cmd.category() != null) {
+                predicates.add(cb.equal(root.get("category"), cmd.category()));
+            }
+            if (cmd.status() != null) {
+                predicates.add(cb.equal(root.get("status"), cmd.status()));
+            }
+            if (cmd.description() != null && !cmd.description().isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("description")), "%" + cmd.description().trim().toLowerCase() + "%"));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        int pageSize = (cmd.limit() != null && cmd.limit() > 0) ? Math.min(cmd.limit(), 50) : 10;
+        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(Sort.Direction.DESC, "occurredOn", "createdAt"));
+
+        return expenseRepository.findAll(spec, pageable).getContent();
     }
 }
 

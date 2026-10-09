@@ -1,10 +1,13 @@
 package com.voicefinance.tools;
 
 import com.voicefinance.ai.tools.FinanceTools;
+import com.voicefinance.ai.tools.adapter.ExpenseResponseAdapter;
 import com.voicefinance.domain.commands.CancelExpenseCommand;
 import com.voicefinance.domain.commands.ConfirmExpenseCommand;
 import com.voicefinance.domain.commands.FillExpenseCommand;
+import com.voicefinance.domain.commands.ListExpensesCommand;
 import com.voicefinance.domain.commands.StartExpenseCommand;
+import com.voicefinance.domain.entity.Expense;
 import com.voicefinance.domain.enums.Category;
 import com.voicefinance.domain.enums.ExpenseStatus;
 import com.voicefinance.domain.results.FillExpenseResult;
@@ -29,6 +32,9 @@ class FinanceToolsTest {
 
     @Mock
     private ExpenseService expenseService;
+
+    @Mock
+    private ExpenseResponseAdapter expenseResponseAdapter;
 
     @InjectMocks
     private FinanceTools financeTools;
@@ -301,5 +307,31 @@ class FinanceToolsTest {
         String result = financeTools.cancelExpense(null);
 
         assertThat(result).isEqualTo("Error canceling expense: command cannot be null");
+    }
+
+    @Test
+    void testListExpenses() {
+        ListExpensesCommand command = new ListExpensesCommand(
+                LocalDate.now().minusDays(7),
+                LocalDate.now(),
+                Category.ALIMENTACAO,
+                ExpenseStatus.CONFIRMED,
+                "almoço",
+                5
+        );
+
+        List<Expense> mockExpenses = List.of(
+                Expense.builder().id(UUID.randomUUID()).description("Almoço").build()
+        );
+        String expectedAdapted = "Gastos encontrados (1):\n- Almoço";
+
+        when(expenseService.listExpenses(command)).thenReturn(mockExpenses);
+        when(expenseResponseAdapter.adapt(mockExpenses)).thenReturn(expectedAdapted);
+
+        String result = financeTools.listExpenses(command);
+
+        assertThat(result).isEqualTo(expectedAdapted);
+        verify(expenseService).listExpenses(command);
+        verify(expenseResponseAdapter).adapt(mockExpenses);
     }
 }

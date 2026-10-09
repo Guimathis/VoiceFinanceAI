@@ -1,17 +1,21 @@
 package com.voicefinance.ai.tools;
 
+import com.voicefinance.ai.tools.adapter.ExpenseResponseAdapter;
 import com.voicefinance.domain.commands.CancelExpenseCommand;
 import com.voicefinance.domain.commands.ConfirmExpenseCommand;
-import com.voicefinance.domain.results.FillExpenseResult;
-import com.voicefinance.service.ExpenseService;
 import com.voicefinance.domain.commands.CreateConfirmationCommand;
 import com.voicefinance.domain.commands.FillExpenseCommand;
+import com.voicefinance.domain.commands.ListExpensesCommand;
 import com.voicefinance.domain.commands.StartExpenseCommand;
+import com.voicefinance.domain.entity.Expense;
+import com.voicefinance.domain.results.FillExpenseResult;
+import com.voicefinance.service.ExpenseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 
 // TODO - Implement recurring expenses
 @Slf4j
@@ -20,6 +24,7 @@ import org.springframework.stereotype.Component;
 public class FinanceTools {
 
     private final ExpenseService expenseService;
+    private final ExpenseResponseAdapter expenseResponseAdapter;
 
     @Tool(description = "Create a new Expense and save it to the database. Returns the id of the new created expense and the missing fields.")
     public String startExpense(StartExpenseCommand command) {
@@ -96,6 +101,17 @@ public class FinanceTools {
         log.info("Retorno obtido no cancelamento de expense para ExpenseId = {} : {}", command.expenseId(), present);
 
         return present;
+    }
+
+    @Tool(description = "List and search existing expenses of the user with optional filters like date range, category, status, and description.")
+    public String listExpenses(
+            ListExpensesCommand command
+    ) {
+        log.info("Listando despesas com filtros: {}", command);
+        List<Expense> expenses = expenseService.listExpenses(command);
+        String adaptedResponse = expenseResponseAdapter.adapt(expenses);
+        log.info("Total de despesas retornadas: {}", expenses.size());
+        return adaptedResponse;
     }
 
     private String present(FillExpenseResult result) {

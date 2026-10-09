@@ -48,6 +48,7 @@ class ChatClientConfig {
                         "Você deve criar confirmações sobre o gasto usando a ferramenta createExpenseFieldConfirmation. " +
                         "Quando o usuário confirmar a despesa, use confirmExpense. " +
                         "Quando o usuário cancelar a despesa, use cancelExpense. " +
+                        "Quando o usuário solicitar listar, consultar ou buscar gastos, use listExpenses. " +
                         "Se a data do gasto não for citada, considere como hoje.")
                 .defaultOptions(GoogleGenAiChatOptions.builder()
                         .model(props.agentModel())
