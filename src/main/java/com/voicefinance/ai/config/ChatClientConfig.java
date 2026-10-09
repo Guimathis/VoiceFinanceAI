@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -43,10 +44,11 @@ class ChatClientConfig {
         return builder
                 .defaultSystem("Você registra gastos usando as ferramentas disponíveis. " +
                         "Você recebe uma solicitação de gastos tem o objetivo de registrar o gasto seguindo os padrões definidos. " +
-                        "Quando não tiver todas as informações necessárias, Você deve criar confirmações sobre o gasto usando a ferramenta createExpenseFieldConfirmation. " +
-                        "Se a data do gasto não for citada, considere como hoje. " +
-                        "expenseid=1feba59f-c140-404f-aba5-9fc140804f28")
-
+                        "Quando não tiver todas as informações necessárias, " +
+                        "Você deve criar confirmações sobre o gasto usando a ferramenta createExpenseFieldConfirmation. " +
+                        "Quando o usuário confirmar a despesa, use confirmExpense. " +
+                        "Quando o usuário cancelar a despesa, use cancelExpense. " +
+                        "Se a data do gasto não for citada, considere como hoje.")
                 .defaultOptions(GoogleGenAiChatOptions.builder()
                         .model(props.agentModel())
                         .temperature(0.2))
@@ -55,7 +57,6 @@ class ChatClientConfig {
                         MessageChatMemoryAdvisor.builder(memory).order(0).build(),
                         simpleLoggerAdvisor
                 )
-                .defaultAdvisors(a -> a.param(ChatMemory.CONVERSATION_ID, "e9d65866-55c1-4eeb-9658-6655c15eeba4"))
                 .build();
     }
 }

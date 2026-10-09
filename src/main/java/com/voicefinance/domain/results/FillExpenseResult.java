@@ -7,6 +7,8 @@ import java.util.UUID;
 
 public sealed interface FillExpenseResult {
     record Saved() implements FillExpenseResult {}
+    record Confirmed() implements FillExpenseResult {}
+    record Canceled() implements FillExpenseResult {}
     record Incomplete(List<String> missing) implements FillExpenseResult {}
     record NotFound(UUID id) implements FillExpenseResult {}
     record NotEditable(ExpenseStatus status) implements FillExpenseResult {}

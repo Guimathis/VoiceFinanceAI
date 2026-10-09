@@ -53,4 +53,15 @@ public class ExpenseFieldConfirmation implements Serializable {
     private void updatedAt() {
         this.updatedAt = Instant.now();
     }
+
+    public void confirm(String answer) {
+        this.status = ConfirmationStatus.CONFIRMED;
+        if (answer != null) {
+            this.answer = answer;
+        }
+    }
+
+    public void reject() {
+        this.status = ConfirmationStatus.REJECTED;
+    }
 }

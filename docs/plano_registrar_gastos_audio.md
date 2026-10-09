@@ -91,7 +91,7 @@ flowchart LR
   ```
 - `ChatClientConfig` com 2 beans nomeados, cada um com `GoogleGenAiChatOptions` próprio:
   - `transcriptionClient`: sem tools, sem memória, temperatura 0.
-  - `agentClient`: com `MessageChatMemoryAdvisor` e o system prompt do agente.
+  - `expenseClientConfig`: com `MessageChatMemoryAdvisor` e o system prompt do agente.
 - Remover `GoogleGenAiChatModel` e `UserAdvisor`, que são de teste.
 - Memória em Postgres: adicionar o starter JDBC de `ChatMemoryRepository` do Spring AI. O `ChatMemory` atual, com `maxMessages(30)`, passa a persistir por `conversationId = userId` e sobrevive a reinícios.
 

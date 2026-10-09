@@ -1,14 +1,17 @@
 package com.voicefinance.domain.entity;
 
 import com.voicefinance.domain.annotation.Confirmable;
+import com.voicefinance.domain.commands.FillExpenseCommand;
 import com.voicefinance.domain.enums.Category;
+import com.voicefinance.domain.enums.ConfirmationField;
+import com.voicefinance.domain.enums.ConfirmationStatus;
 import com.voicefinance.domain.enums.ExpenseOrigin;
 import com.voicefinance.domain.enums.ExpenseStatus;
-import com.voicefinance.domain.commands.FillExpenseCommand;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -85,13 +88,22 @@ public class Expense implements Serializable {
     public void fill(FillExpenseCommand cmd) {
         if (cmd.amount() != null) {
             String cur = cmd.currency() != null ? cmd.currency()
-                    : amount != null ? amount.currency() : null;
+                    : this.amount != null ? this.amount.currency() : null;
             this.amount = new Money(cmd.amount(), cur);
+            resolveConfirmation(ConfirmationField.AMOUNT, cmd.amount().toPlainString());
         }
-        if (cmd.description() != null && !cmd.description().isBlank()) this.description = cmd.description();
-        if (cmd.category() != null) this.category = cmd.category();
-        if (cmd.OccurredOn() != null) this.occurredOn = cmd.OccurredOn();
-
+        if (cmd.description() != null && !cmd.description().isBlank()) {
+            this.description = cmd.description();
+            resolveConfirmation(ConfirmationField.DESCRIPTION, cmd.description());
+        }
+        if (cmd.category() != null) {
+            this.category = cmd.category();
+            resolveConfirmation(ConfirmationField.CATEGORY, cmd.category().name());
+        }
+        if (cmd.OccurredOn() != null) {
+            this.occurredOn = cmd.OccurredOn();
+            resolveConfirmation(ConfirmationField.OCCURRED_ON, cmd.OccurredOn().toString());
+        }
     }
 
     public void addConfirmation(ExpenseFieldConfirmation confirmation) {
@@ -105,6 +117,40 @@ public class Expense implements Serializable {
     public void confirmExpense() {
         this.confirmedAt = Instant.now();
         this.status = ExpenseStatus.CONFIRMED;
+        if (this.expenseConfirmations != null) {
+            for (ExpenseFieldConfirmation confirmation : this.expenseConfirmations) {
+                if (confirmation.getStatus() == ConfirmationStatus.PENDING) {
+                    confirmation.confirm(confirmation.getAnswer());
+                }
+            }
+        }
+    }
+
+    public void cancelExpense() {
+        this.confirmedAt = null;
+        this.status = ExpenseStatus.CANCELED;
+        if (this.expenseConfirmations != null) {
+            for (ExpenseFieldConfirmation confirmation : this.expenseConfirmations) {
+                if (confirmation.getStatus() == ConfirmationStatus.PENDING) {
+                    confirmation.reject();
+                }
+            }
+        }
+    }
+
+    private void resolveConfirmation(ConfirmationField field, String answer) {
+        if (this.expenseConfirmations == null) return;
+        for (ExpenseFieldConfirmation confirmation : this.expenseConfirmations) {
+            if (isMatchingField(confirmation.getField(), field) && confirmation.getStatus() == ConfirmationStatus.PENDING) {
+                confirmation.confirm(answer);
+            }
+        }
+    }
+
+    private boolean isMatchingField(ConfirmationField existing, ConfirmationField target) {
+        if (existing == target) return true;
+        return (existing == ConfirmationField.OCCURRED_ON && target == ConfirmationField.DATE) ||
+               (existing == ConfirmationField.DATE && target == ConfirmationField.OCCURRED_ON);
     }
 
     public List<String> missingFields() {

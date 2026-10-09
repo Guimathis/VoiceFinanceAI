@@ -1,14 +1,22 @@
 package com.voicefinance.service;
 
 import com.voicefinance.domain.annotation.ConfirmableFields;
+import com.voicefinance.domain.commands.CancelExpenseCommand;
+import com.voicefinance.domain.commands.ConfirmExpenseCommand;
+import com.voicefinance.domain.commands.CreateConfirmationCommand;
 import com.voicefinance.domain.commands.FillExpenseCommand;
+import com.voicefinance.domain.commands.StartExpenseCommand;
 import com.voicefinance.domain.entity.Expense;
+import com.voicefinance.domain.entity.ExpenseFieldConfirmation;
 import com.voicefinance.domain.enums.Category;
+import com.voicefinance.domain.enums.ExpenseOrigin;
 import com.voicefinance.domain.enums.ExpenseStatus;
 import com.voicefinance.domain.results.FillExpenseResult;
 import com.voicefinance.repository.ExpenseRepository;
+import com.voicefinance.security.CurrentUserProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,8 +40,136 @@ class ExpenseServiceTest {
     @Mock
     private ConfirmableFields confirmableFields;
 
+    @Mock
+    private CurrentUserProvider currentUserProvider;
+
     @InjectMocks
     private ExpenseService expenseService;
+
+
+    @Test
+    void shouldReturnSaved_WhenExpenseIsSaved() {
+        StartExpenseCommand command = new StartExpenseCommand(
+                BigDecimal.TEN,
+                "BRL",
+                "Gasto com comida",
+                Category.ALIMENTACAO,
+                LocalDate.now()
+        );
+        UUID userId = UUID.randomUUID();
+        UUID generatedExpenseId = UUID.randomUUID();
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+        when(expenseRepository.save(any(Expense.class))).thenAnswer(invocation -> {
+            Expense exp = invocation.getArgument(0);
+            exp.setId(generatedExpenseId);
+            return exp;
+        });
+
+        String result = expenseService.startExpense(command);
+
+        assertThat(result).isEqualTo("Expense recorded with id=" + generatedExpenseId + ". All required fields are present.");
+
+        ArgumentCaptor<Expense> captor = ArgumentCaptor.forClass(Expense.class);
+        verify(expenseRepository).save(captor.capture());
+
+        Expense saved = captor.getValue();
+        assertThat(saved.getUserId()).isEqualTo(userId);
+        assertThat(saved.getStatus()).isEqualTo(ExpenseStatus.PENDING_CONFIRMATION);
+        assertThat(saved.getOrigin()).isEqualTo(ExpenseOrigin.AUDIO);
+        assertThat(saved.getAmount().amount()).isEqualByComparingTo("10.00");
+        assertThat(saved.getAmount().currency()).isEqualTo("BRL");
+        assertThat(saved.getDescription()).isEqualTo("Gasto com comida");
+        assertThat(saved.getCategory()).isEqualTo(Category.ALIMENTACAO);
+        assertThat(saved.getOccurredOn()).isEqualTo(command.OccurredOn());
+        assertThat(saved.getCaptureId()).isNotNull();
+    }
+
+    @Test
+    void shouldReturnSaved_WhenExpenseIsSaved_withMissingFields() {
+        StartExpenseCommand command = new StartExpenseCommand(
+                null,
+                "BRL",
+                "Gasto sem valor e categoria",
+                null,
+                null
+        );
+        UUID userId = UUID.randomUUID();
+        UUID generatedExpenseId = UUID.randomUUID();
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+        when(expenseRepository.save(any(Expense.class))).thenAnswer(invocation -> {
+            Expense exp = invocation.getArgument(0);
+            exp.setId(generatedExpenseId);
+            return exp;
+        });
+
+        String result = expenseService.startExpense(command);
+
+        assertThat(result).isEqualTo("Expense recorded with id=" + generatedExpenseId + ", but still missing: amount, category, occurredOnDate");
+
+        ArgumentCaptor<Expense> captor = ArgumentCaptor.forClass(Expense.class);
+        verify(expenseRepository).save(captor.capture());
+
+        Expense saved = captor.getValue();
+        assertThat(saved.getUserId()).isEqualTo(userId);
+        assertThat(saved.getAmount()).isNull();
+        assertThat(saved.getCategory()).isNull();
+        assertThat(saved.getOccurredOn()).isNull();
+        assertThat(saved.getDescription()).isEqualTo("Gasto sem valor e categoria");
+    }
+
+    @Test
+    void shouldDefaultCurrencyToBrl_WhenCurrencyIsNull() {
+        StartExpenseCommand command = new StartExpenseCommand(
+                new BigDecimal("50.00"),
+                null,
+                "Café",
+                Category.ALIMENTACAO,
+                LocalDate.now()
+        );
+        UUID userId = UUID.randomUUID();
+        UUID generatedExpenseId = UUID.randomUUID();
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+        when(expenseRepository.save(any(Expense.class))).thenAnswer(invocation -> {
+            Expense exp = invocation.getArgument(0);
+            exp.setId(generatedExpenseId);
+            return exp;
+        });
+
+        String result = expenseService.startExpense(command);
+
+        assertThat(result).isEqualTo("Expense recorded with id=" + generatedExpenseId + ". All required fields are present.");
+
+        ArgumentCaptor<Expense> captor = ArgumentCaptor.forClass(Expense.class);
+        verify(expenseRepository).save(captor.capture());
+        assertThat(captor.getValue().getAmount().currency()).isEqualTo("BRL");
+    }
+
+    @Test
+    void shouldReturnSaved_WhenOnlyOccurredOnIsMissing() {
+        StartExpenseCommand command = new StartExpenseCommand(
+                new BigDecimal("30.00"),
+                "BRL",
+                "Transporte",
+                Category.TRANSPORTE,
+                null
+        );
+        UUID userId = UUID.randomUUID();
+        UUID generatedExpenseId = UUID.randomUUID();
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+        when(expenseRepository.save(any(Expense.class))).thenAnswer(invocation -> {
+            Expense exp = invocation.getArgument(0);
+            exp.setId(generatedExpenseId);
+            return exp;
+        });
+
+        String result = expenseService.startExpense(command);
+
+        assertThat(result).isEqualTo("Expense recorded with id=" + generatedExpenseId + ", but still missing: occurredOnDate");
+    }
 
     @Test
     void shouldReturnNotFound_WhenExpenseDoesNotExist() {
@@ -49,7 +185,7 @@ class ExpenseServiceTest {
 
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.empty());
 
-        FillExpenseResult result = expenseService.fill(cmd);
+        FillExpenseResult result = expenseService.fillExpense(cmd);
 
         assertThat(result).isInstanceOf(FillExpenseResult.NotFound.class);
         FillExpenseResult.NotFound notFound = (FillExpenseResult.NotFound) result;
@@ -78,7 +214,7 @@ class ExpenseServiceTest {
 
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
 
-        FillExpenseResult result = expenseService.fill(cmd);
+        FillExpenseResult result = expenseService.fillExpense(cmd);
 
         assertThat(result).isInstanceOf(FillExpenseResult.NotEditable.class);
         FillExpenseResult.NotEditable notEditable = (FillExpenseResult.NotEditable) result;
@@ -107,7 +243,7 @@ class ExpenseServiceTest {
 
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
 
-        FillExpenseResult result = expenseService.fill(cmd);
+        FillExpenseResult result = expenseService.fillExpense(cmd);
 
         assertThat(result).isInstanceOf(FillExpenseResult.NotEditable.class);
         FillExpenseResult.NotEditable notEditable = (FillExpenseResult.NotEditable) result;
@@ -136,7 +272,7 @@ class ExpenseServiceTest {
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
         when(confirmableFields.missing(expense)).thenReturn(List.of());
 
-        FillExpenseResult result = expenseService.fill(cmd);
+        FillExpenseResult result = expenseService.fillExpense(cmd);
 
         assertThat(result).isInstanceOf(FillExpenseResult.Saved.class);
         verify(expenseRepository).save(expense);
@@ -169,7 +305,7 @@ class ExpenseServiceTest {
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
         when(confirmableFields.missing(expense)).thenReturn(missing);
 
-        FillExpenseResult result = expenseService.fill(cmd);
+        FillExpenseResult result = expenseService.fillExpense(cmd);
 
         assertThat(result).isInstanceOf(FillExpenseResult.Incomplete.class);
         FillExpenseResult.Incomplete incomplete = (FillExpenseResult.Incomplete) result;
@@ -184,10 +320,11 @@ class ExpenseServiceTest {
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.empty());
 
         FillExpenseResult result = expenseService.createExpenseFieldConfirmation(
-                List.of("category"),
-                expenseId,
-                "Qual a categoria?"
-        );
+                new CreateConfirmationCommand(
+                        expenseId,
+                        List.of("category"),
+                        "Qual a categoria?"
+                ));
 
         assertThat(result).isInstanceOf(FillExpenseResult.NotFound.class);
         verify(expenseRepository, never()).save(any());
@@ -204,10 +341,11 @@ class ExpenseServiceTest {
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
 
         FillExpenseResult result = expenseService.createExpenseFieldConfirmation(
-                List.of("category"),
-                expenseId,
-                "Qual a categoria?"
-        );
+                new CreateConfirmationCommand(
+                        expenseId,
+                        List.of("category"),
+                        "Qual a categoria?"
+                ));
 
         assertThat(result).isInstanceOf(FillExpenseResult.NotEditable.class);
         verify(expenseRepository, never()).save(any());
@@ -223,7 +361,7 @@ class ExpenseServiceTest {
 
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
 
-        assertThat(expenseService.createExpenseFieldConfirmation(List.of(), expenseId, "Qual a categoria?"))
+        assertThat(expenseService.createExpenseFieldConfirmation(new CreateConfirmationCommand(expenseId, List.of(), "Qual a categoria?")))
                 .isInstanceOf(FillExpenseResult.InvalidFields.class);
         verify(expenseRepository, never()).save(any());
     }
@@ -239,7 +377,8 @@ class ExpenseServiceTest {
         when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
         when(confirmableFields.isValid(Expense.class, List.of("invalido"))).thenReturn(List.of("invalido"));
 
-        assertThat(expenseService.createExpenseFieldConfirmation(List.of("invalido"), expenseId, "Qual a categoria?"))
+        assertThat(expenseService.createExpenseFieldConfirmation(
+                new CreateConfirmationCommand(expenseId, List.of("invalido"), "Qual a categoria?")))
                 .isInstanceOf(FillExpenseResult.InvalidFields.class);
 
         verify(expenseRepository, never()).save(any());
@@ -258,10 +397,11 @@ class ExpenseServiceTest {
         when(confirmableFields.isValid(Expense.class, missingFields)).thenReturn(List.of());
 
         FillExpenseResult result = expenseService.createExpenseFieldConfirmation(
-                missingFields,
-                expenseId,
-                "Pode informar a categoria e a data do gasto?"
-        );
+                new CreateConfirmationCommand(
+                        expenseId,
+                        missingFields,
+                        "Pode informar a categoria e a data do gasto?"
+                ));
 
         assertThat(result).isInstanceOf(FillExpenseResult.Incomplete.class);
         FillExpenseResult.Incomplete incomplete = (FillExpenseResult.Incomplete) result;
@@ -279,5 +419,164 @@ class ExpenseServiceTest {
         var second = expense.getExpenseConfirmations().get(1);
         assertThat(second.getField()).isEqualTo(com.voicefinance.domain.enums.ConfirmationField.OCCURRED_ON);
         assertThat(second.getStatus()).isEqualTo(com.voicefinance.domain.enums.ConfirmationStatus.PENDING);
+    }
+
+    @Test
+    void confirmExpense_WhenExpenseNotFound_ReturnsNotFound() {
+        UUID expenseId = UUID.randomUUID();
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.empty());
+
+        FillExpenseResult result = expenseService.confirmExpense(new ConfirmExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.NotFound.class);
+        FillExpenseResult.NotFound notFound = (FillExpenseResult.NotFound) result;
+        assertThat(notFound.id()).isEqualTo(expenseId);
+        verify(expenseRepository, never()).save(any());
+    }
+
+    @Test
+    void confirmExpense_WhenExpenseNotEditable_ReturnsNotEditable() {
+        UUID expenseId = UUID.randomUUID();
+        Expense expense = Expense.builder()
+                .id(expenseId)
+                .status(ExpenseStatus.CONFIRMED)
+                .build();
+
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
+
+        FillExpenseResult result = expenseService.confirmExpense(new ConfirmExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.NotEditable.class);
+        FillExpenseResult.NotEditable notEditable = (FillExpenseResult.NotEditable) result;
+        assertThat(notEditable.status()).isEqualTo(ExpenseStatus.CONFIRMED);
+        verify(expenseRepository, never()).save(any());
+    }
+
+    @Test
+    void confirmExpense_WhenValid_ConfirmsAndSavesExpense() {
+        UUID expenseId = UUID.randomUUID();
+        Expense expense = Expense.builder()
+                .id(expenseId)
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
+
+        FillExpenseResult result = expenseService.confirmExpense(new ConfirmExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.Confirmed.class);
+        assertThat(expense.getStatus()).isEqualTo(ExpenseStatus.CONFIRMED);
+        assertThat(expense.getConfirmedAt()).isNotNull();
+        verify(expenseRepository).save(expense);
+    }
+
+    @Test
+    void cancelExpense_WhenExpenseNotFound_ReturnsNotFound() {
+        UUID expenseId = UUID.randomUUID();
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.empty());
+
+        FillExpenseResult result = expenseService.cancelExpense(new CancelExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.NotFound.class);
+        FillExpenseResult.NotFound notFound = (FillExpenseResult.NotFound) result;
+        assertThat(notFound.id()).isEqualTo(expenseId);
+        verify(expenseRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelExpense_WhenExpenseNotEditable_ReturnsNotEditable() {
+        UUID expenseId = UUID.randomUUID();
+        Expense expense = Expense.builder()
+                .id(expenseId)
+                .status(ExpenseStatus.CANCELED)
+                .build();
+
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
+
+        FillExpenseResult result = expenseService.cancelExpense(new CancelExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.NotEditable.class);
+        FillExpenseResult.NotEditable notEditable = (FillExpenseResult.NotEditable) result;
+        assertThat(notEditable.status()).isEqualTo(ExpenseStatus.CANCELED);
+        verify(expenseRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelExpense_WhenValid_CancelsAndSavesExpense() {
+        UUID expenseId = UUID.randomUUID();
+        Expense expense = Expense.builder()
+                .id(expenseId)
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
+
+        FillExpenseResult result = expenseService.cancelExpense(new CancelExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.Canceled.class);
+        assertThat(expense.getStatus()).isEqualTo(ExpenseStatus.CANCELED);
+        assertThat(expense.getConfirmedAt()).isNull();
+        verify(expenseRepository).save(expense);
+    }
+
+    @Test
+    void fillExpense_ShouldResolvePendingConfirmation_WhenMatchingFieldIsFilled() {
+        UUID expenseId = UUID.randomUUID();
+        Expense expense = Expense.builder()
+                .id(expenseId)
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        ExpenseFieldConfirmation confirmation = ExpenseFieldConfirmation.builder()
+                .id(UUID.randomUUID())
+                .field(com.voicefinance.domain.enums.ConfirmationField.CATEGORY)
+                .status(com.voicefinance.domain.enums.ConfirmationStatus.PENDING)
+                .question("Qual a categoria?")
+                .build();
+        expense.addConfirmation(confirmation);
+
+        FillExpenseCommand cmd = new FillExpenseCommand(
+                expenseId,
+                null,
+                null,
+                null,
+                Category.TRANSPORTE,
+                null
+        );
+
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
+        when(confirmableFields.missing(expense)).thenReturn(List.of());
+
+        FillExpenseResult result = expenseService.fillExpense(cmd);
+
+        assertThat(result).isInstanceOf(FillExpenseResult.Saved.class);
+        assertThat(confirmation.getStatus()).isEqualTo(com.voicefinance.domain.enums.ConfirmationStatus.CONFIRMED);
+        assertThat(confirmation.getAnswer()).isEqualTo("TRANSPORTE");
+        verify(expenseRepository).save(expense);
+    }
+
+    @Test
+    void cancelExpense_ShouldRejectPendingConfirmations() {
+        UUID expenseId = UUID.randomUUID();
+        Expense expense = Expense.builder()
+                .id(expenseId)
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        ExpenseFieldConfirmation confirmation = ExpenseFieldConfirmation.builder()
+                .id(UUID.randomUUID())
+                .field(com.voicefinance.domain.enums.ConfirmationField.CATEGORY)
+                .status(com.voicefinance.domain.enums.ConfirmationStatus.PENDING)
+                .question("Qual a categoria?")
+                .build();
+        expense.addConfirmation(confirmation);
+
+        when(expenseRepository.findById(expenseId)).thenReturn(Optional.of(expense));
+
+        FillExpenseResult result = expenseService.cancelExpense(new CancelExpenseCommand(expenseId));
+
+        assertThat(result).isInstanceOf(FillExpenseResult.Canceled.class);
+        assertThat(confirmation.getStatus()).isEqualTo(com.voicefinance.domain.enums.ConfirmationStatus.REJECTED);
+        verify(expenseRepository).save(expense);
     }
 }

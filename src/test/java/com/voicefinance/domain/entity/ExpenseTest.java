@@ -2,10 +2,13 @@ package com.voicefinance.domain.entity;
 
 import com.voicefinance.domain.commands.FillExpenseCommand;
 import com.voicefinance.domain.enums.Category;
+import com.voicefinance.domain.enums.ConfirmationField;
+import com.voicefinance.domain.enums.ConfirmationStatus;
 import com.voicefinance.domain.enums.ExpenseStatus;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -102,5 +105,101 @@ class ExpenseTest {
 
         assertThat(expense.getStatus()).isEqualTo(ExpenseStatus.CONFIRMED);
         assertThat(expense.getConfirmedAt()).isNotNull();
+    }
+
+    @Test
+    void cancelExpense_ShouldUpdateStatusAndResetConfirmedAt() {
+        Expense expense = Expense.builder()
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .confirmedAt(Instant.now())
+                .build();
+
+        expense.cancelExpense();
+
+        assertThat(expense.getStatus()).isEqualTo(ExpenseStatus.CANCELED);
+        assertThat(expense.getConfirmedAt()).isNull();
+    }
+
+    @Test
+    void fill_ShouldAutoResolveMatchingPendingConfirmationsAndSetAnswer() {
+        Expense expense = Expense.builder()
+                .id(UUID.randomUUID())
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        ExpenseFieldConfirmation catConf = ExpenseFieldConfirmation.builder()
+                .id(UUID.randomUUID())
+                .field(ConfirmationField.CATEGORY)
+                .status(ConfirmationStatus.PENDING)
+                .question("Qual a categoria?")
+                .build();
+
+        ExpenseFieldConfirmation dateConf = ExpenseFieldConfirmation.builder()
+                .id(UUID.randomUUID())
+                .field(ConfirmationField.OCCURRED_ON)
+                .status(ConfirmationStatus.PENDING)
+                .question("Qual a data?")
+                .build();
+
+        expense.addConfirmation(catConf);
+        expense.addConfirmation(dateConf);
+
+        FillExpenseCommand cmd = new FillExpenseCommand(
+                expense.getId(),
+                null,
+                null,
+                null,
+                Category.ALIMENTACAO,
+                null
+        );
+
+        expense.fill(cmd);
+
+        assertThat(catConf.getStatus()).isEqualTo(ConfirmationStatus.CONFIRMED);
+        assertThat(catConf.getAnswer()).isEqualTo("ALIMENTACAO");
+        assertThat(dateConf.getStatus()).isEqualTo(ConfirmationStatus.PENDING);
+        assertThat(dateConf.getAnswer()).isNull();
+    }
+
+    @Test
+    void confirmExpense_ShouldResolveRemainingPendingConfirmations() {
+        Expense expense = Expense.builder()
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        ExpenseFieldConfirmation conf = ExpenseFieldConfirmation.builder()
+                .id(UUID.randomUUID())
+                .field(ConfirmationField.CATEGORY)
+                .status(ConfirmationStatus.PENDING)
+                .question("Qual a categoria?")
+                .build();
+
+        expense.addConfirmation(conf);
+
+        expense.confirmExpense();
+
+        assertThat(expense.getStatus()).isEqualTo(ExpenseStatus.CONFIRMED);
+        assertThat(conf.getStatus()).isEqualTo(ConfirmationStatus.CONFIRMED);
+    }
+
+    @Test
+    void cancelExpense_ShouldRejectPendingConfirmations() {
+        Expense expense = Expense.builder()
+                .status(ExpenseStatus.PENDING_CONFIRMATION)
+                .build();
+
+        ExpenseFieldConfirmation conf = ExpenseFieldConfirmation.builder()
+                .id(UUID.randomUUID())
+                .field(ConfirmationField.CATEGORY)
+                .status(ConfirmationStatus.PENDING)
+                .question("Qual a categoria?")
+                .build();
+
+        expense.addConfirmation(conf);
+
+        expense.cancelExpense();
+
+        assertThat(expense.getStatus()).isEqualTo(ExpenseStatus.CANCELED);
+        assertThat(conf.getStatus()).isEqualTo(ConfirmationStatus.REJECTED);
     }
 }
