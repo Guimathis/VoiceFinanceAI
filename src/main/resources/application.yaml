@@ -26,7 +26,7 @@ spring:
 
 voicefinance:
   ai:
-    transcription-model: gemini-3.5-transcription
+    transcription-model: gemini-3.8-flash
     agent-model: gemini-3.1-flash-lite
   audio:
     storage-dir: ${AUDIO_STORAGE_DIR:./storage/audio}

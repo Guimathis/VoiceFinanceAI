@@ -1,5 +1,6 @@
 package com.voicefinance.service;
 
+import com.voicefinance.context.CaptureContextHolder;
 import com.voicefinance.domain.annotation.ConfirmableFields;
 import com.voicefinance.domain.commands.*;
 import com.voicefinance.domain.entity.Expense;
@@ -52,10 +53,8 @@ public class ExpenseService {
                 ? new Money(command.amount(), command.currency() != null ? command.currency() : "BRL")
                 : null;
 
-        UUID captureId = com.voicefinance.context.CaptureContextHolder.getCaptureId() != null
-                ? com.voicefinance.context.CaptureContextHolder.getCaptureId()
-                : UUID.randomUUID();
-        ExpenseOrigin origin = com.voicefinance.context.CaptureContextHolder.getOrigin();
+        UUID captureId = CaptureContextHolder.getCaptureId();
+        ExpenseOrigin origin = CaptureContextHolder.getOrigin();
 
         Expense expense = Expense.builder()
                 .userId(currentUserId)

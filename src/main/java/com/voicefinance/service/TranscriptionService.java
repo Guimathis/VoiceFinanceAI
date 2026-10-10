@@ -16,7 +16,7 @@ import java.util.Set;
 @Service
 public class TranscriptionService {
 
-    private final ChatClient chatClient;
+    private final @Qualifier("transcriptionClient") ChatClient chatClient;
 
     private static final Set<String> NOISE_PATTERNS = Set.of(
             "...",
@@ -38,7 +38,7 @@ public class TranscriptionService {
         this.chatClient = chatClient;
     }
 
-    @Retry(name = "transcriptionRetry")
+//    @Retry(name = "transcriptionRetry")
     @CircuitBreaker(name = "transcriptionCircuit")
     public String transcrever(Resource audio, String mimeType) {
         log.info("Iniciando transcrição de áudio com mimeType: {}", mimeType);

@@ -22,7 +22,10 @@ public final class CaptureContextHolder {
 
     public static ExpenseOrigin getOrigin() {
         ExpenseOrigin origin = ORIGIN_HOLDER.get();
-        return origin != null ? origin : ExpenseOrigin.AUDIO;
+        if (origin != null) {
+            return origin;
+        }
+        return getCaptureId() != null ? ExpenseOrigin.AUDIO : ExpenseOrigin.MANUAL;
     }
 
     public static void clear() {
