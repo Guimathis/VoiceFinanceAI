@@ -4,7 +4,7 @@ spring:
   config:
     import: optional:file:./.env[.properties]
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/voicefinance}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/}${SPRING_DATASOURCE_DB:voicefinance}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver

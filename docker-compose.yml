@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: voicefinance-pg
+    mem_limit: 250m
+    environment:
+      POSTGRES_DB: ${SPRING_DATASOURCE_URL}/${SPRING_DATASOURCE_DB}
+      POSTGRES_USER: ${SPRING_DATASOURCE_USERNAME}
+      POSTGRES_PASSWORD: ${SPRING_DATASOURCE_URL}
+    ports:
+      - "5432:5432"
+    volumes:
+      - voicefinance_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d voicefinance_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5 
+
+volumes:
+  voicefinance_pg_data:
