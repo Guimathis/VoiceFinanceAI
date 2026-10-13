@@ -13,6 +13,10 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   ai:
     google:
       genai:
@@ -22,8 +26,12 @@ spring:
 
 voicefinance:
   ai:
-    transcription-model: gemini-3.5-transcription
+    transcription-model: gemini-3.8-flash
     agent-model: gemini-3.1-flash-lite
+  audio:
+    storage-dir: ${AUDIO_STORAGE_DIR:./storage/audio}
+    max-file-size-bytes: 10485760
+    max-duration-seconds: 60
 
 logging:
   level:

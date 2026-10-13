@@ -58,7 +58,7 @@ public class Expense implements Serializable {
     @Column(name = "origin", nullable = false)
     private ExpenseOrigin origin;
 
-    @Column(name = "capture_id", nullable = false)
+    @Column(name = "capture_id")
     private UUID captureId;
 
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL)
@@ -103,6 +103,24 @@ public class Expense implements Serializable {
         if (cmd.OccurredOn() != null) {
             this.occurredOn = cmd.OccurredOn();
             resolveConfirmation(ConfirmationField.OCCURRED_ON, cmd.OccurredOn().toString());
+        }
+    }
+
+    public void update(com.voicefinance.domain.dto.UpdateExpenseRequest req) {
+        if (req.amount() != null) {
+            String cur = req.currency() != null && !req.currency().isBlank()
+                    ? req.currency()
+                    : this.amount != null ? this.amount.currency() : "BRL";
+            this.amount = new Money(req.amount(), cur);
+        }
+        if (req.category() != null) {
+            this.category = req.category();
+        }
+        if (req.description() != null) {
+            this.description = req.description();
+        }
+        if (req.occurredOn() != null) {
+            this.occurredOn = req.occurredOn();
         }
     }
 

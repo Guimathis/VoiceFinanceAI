@@ -26,12 +26,11 @@ class ChatClientConfig {
     @Bean
     ChatClient transcriptionClient(ChatClient.Builder builder, AiModelsProperties props) {
         return builder
-                .defaultSystem("Você transcreve áudio em português, literalmente. "
-                        + "Responda só com a transcrição.")
+                .defaultSystem("Você transcreve áudio em português brasileiro literalmente. "
+                        + "Responda apenas com a transcrição textual exata do áudio, sem introduções, sem saudações e sem comentários adicionais.")
                 .defaultOptions(GoogleGenAiChatOptions.builder()
                         .model(props.transcriptionModel())
                         .temperature(0.0))
-                .defaultTools(dateTimeTools)
                 .defaultAdvisors(
                         simpleLoggerAdvisor
                 )

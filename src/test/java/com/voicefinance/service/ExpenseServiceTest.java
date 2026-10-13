@@ -1,5 +1,6 @@
 package com.voicefinance.service;
 
+import com.voicefinance.context.CaptureContextHolder;
 import com.voicefinance.domain.annotation.ConfirmableFields;
 import com.voicefinance.domain.commands.CancelExpenseCommand;
 import com.voicefinance.domain.commands.ConfirmExpenseCommand;
@@ -80,13 +81,57 @@ class ExpenseServiceTest {
         Expense saved = captor.getValue();
         assertThat(saved.getUserId()).isEqualTo(userId);
         assertThat(saved.getStatus()).isEqualTo(ExpenseStatus.PENDING_CONFIRMATION);
-        assertThat(saved.getOrigin()).isEqualTo(ExpenseOrigin.AUDIO);
+        assertThat(saved.getOrigin()).isEqualTo(ExpenseOrigin.MANUAL);
         assertThat(saved.getAmount().amount()).isEqualByComparingTo("10.00");
         assertThat(saved.getAmount().currency()).isEqualTo("BRL");
         assertThat(saved.getDescription()).isEqualTo("Gasto com comida");
         assertThat(saved.getCategory()).isEqualTo(Category.ALIMENTACAO);
         assertThat(saved.getOccurredOn()).isEqualTo(command.OccurredOn());
-        assertThat(saved.getCaptureId()).isNotNull();
+        assertThat(saved.getCaptureId()).isNull();
+    }
+
+    @Test
+    void shouldReturnSaved_WhenExpenseIsSaved_WithAudioCaptureContext() {
+        UUID captureId = UUID.randomUUID();
+        CaptureContextHolder.set(captureId, ExpenseOrigin.AUDIO);
+        try {
+            StartExpenseCommand command = new StartExpenseCommand(
+                    BigDecimal.TEN,
+                    "BRL",
+                    "Gasto com comida",
+                    Category.ALIMENTACAO,
+                    LocalDate.now()
+            );
+            UUID userId = UUID.randomUUID();
+            UUID generatedExpenseId = UUID.randomUUID();
+
+            when(currentUserProvider.getCurrentUserId()).thenReturn(userId);
+            when(expenseRepository.save(any(Expense.class))).thenAnswer(invocation -> {
+                Expense exp = invocation.getArgument(0);
+                exp.setId(generatedExpenseId);
+                return exp;
+            });
+
+            String result = expenseService.startExpense(command);
+
+            assertThat(result).isEqualTo("Expense recorded with id=" + generatedExpenseId + ". All required fields are present.");
+
+            ArgumentCaptor<Expense> captor = ArgumentCaptor.forClass(Expense.class);
+            verify(expenseRepository).save(captor.capture());
+
+            Expense saved = captor.getValue();
+            assertThat(saved.getUserId()).isEqualTo(userId);
+            assertThat(saved.getStatus()).isEqualTo(ExpenseStatus.PENDING_CONFIRMATION);
+            assertThat(saved.getOrigin()).isEqualTo(ExpenseOrigin.AUDIO);
+            assertThat(saved.getAmount().amount()).isEqualByComparingTo("10.00");
+            assertThat(saved.getAmount().currency()).isEqualTo("BRL");
+            assertThat(saved.getDescription()).isEqualTo("Gasto com comida");
+            assertThat(saved.getCategory()).isEqualTo(Category.ALIMENTACAO);
+            assertThat(saved.getOccurredOn()).isEqualTo(command.OccurredOn());
+            assertThat(saved.getCaptureId()).isEqualTo(captureId);
+        } finally {
+            CaptureContextHolder.clear();
+        }
     }
 
     @Test
